@@ -1,0 +1,29 @@
+{
+  "name": "c",
+  "version": "1.0.0",
+  "description": "Company app workspace with Firebase and Google Drive tooling.",
+  "main": "index.js",
+  "scripts": {
+    "firebase": "firebase",
+    "firebase:login": "firebase login",
+    "firebase:projects": "firebase projects:list",
+    "firebase:init": "firebase init",
+    "firebase:emulators": "firebase emulators:start",
+    "drive:auth": "node scripts/drive-auth.cjs",
+    "drive:check": "node scripts/drive-check.cjs",
+    "drive:list": "node scripts/drive-list.cjs",
+    "drive:mkdir": "node scripts/drive-mkdir.cjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "firebase-tools": "^15.17.0"
+  },
+  "dependencies": {
+    "firebase": "^12.13.0",
+    "googleapis": "^171.4.0"
+  }
+}
