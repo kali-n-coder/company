@@ -12,7 +12,10 @@
     "drive:auth": "node scripts/drive-auth.cjs",
     "drive:check": "node scripts/drive-check.cjs",
     "drive:list": "node scripts/drive-list.cjs",
-    "drive:mkdir": "node scripts/drive-mkdir.cjs"
+    "drive:mkdir": "node scripts/drive-mkdir.cjs",
+    "drive-local:check": "node scripts/drive-local-check.cjs",
+    "drive-local:list": "node scripts/drive-local-list.cjs",
+    "drive-local:mkdir": "node scripts/drive-local-mkdir.cjs"
   },
   "keywords": [],
   "author": "",

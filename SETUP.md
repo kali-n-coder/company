@@ -45,6 +45,42 @@ Never commit `.env` or Google credential JSON files.
 
 For light usage, the app can store Google Drive share links manually.
 
+### Recommended fallback: Google Drive for desktop
+
+If Google Cloud Console is hard to use, use the synced local folder instead. Codex can operate files locally, and Google Drive syncs them automatically.
+
+This machine currently uses:
+
+```txt
+G:\マイドライブ\Company App Files
+```
+
+Set this in `.env`:
+
+```txt
+GOOGLE_DRIVE_LOCAL_PATH=G:\マイドライブ\Company App Files
+```
+
+Check local Drive access:
+
+```powershell
+npm.cmd run drive-local:check
+```
+
+List local Drive files:
+
+```powershell
+npm.cmd run drive-local:list
+```
+
+Create a synced subfolder:
+
+```powershell
+npm.cmd run drive-local:mkdir -- "Manuals"
+```
+
+### API option: Google Cloud OAuth
+
 For Codex/API automation, use OAuth so this workspace can operate files in the Drive folder after you approve access once.
 
 1. Open Google Cloud Console for the same project you use with Firebase.
