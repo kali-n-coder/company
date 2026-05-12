@@ -11,6 +11,7 @@
     "firebase:login": "firebase login",
     "firebase:projects": "firebase projects:list",
     "firebase:init": "firebase init",
+    "firebase:rules": "firebase deploy --only firestore:rules --project company-b9fe9",
     "firebase:emulators": "firebase emulators:start",
     "drive:auth": "node scripts/drive-auth.cjs",
     "drive:check": "node scripts/drive-check.cjs",

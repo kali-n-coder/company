@@ -14,6 +14,8 @@ import {
   Handshake,
   Inbox,
   JapaneseYen,
+  LogIn,
+  LogOut,
   Megaphone,
   MessageSquare,
   Plus,
@@ -27,8 +29,16 @@ import {
   Users,
   WalletCards,
 } from "lucide-react";
-import { FormEvent, ReactNode, useMemo, useState } from "react";
-import { firebaseConfig } from "./firebase";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  type User,
+} from "firebase/auth";
+import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db, firebaseConfig } from "./firebase";
 
 type ModuleId =
   | "dashboard"
@@ -259,24 +269,104 @@ function yen(value: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(value);
 }
 
-function useLocalData() {
+function useAuthUser() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    if (!auth) {
+      setAuthReady(true);
+      return undefined;
+    }
+
+    return onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setAuthReady(true);
+    });
+  }, []);
+
+  return { user, authReady };
+}
+
+function useCompanyData(user: User | null) {
   const [data, setData] = useState<DataStore>(() => {
     const saved = localStorage.getItem("company-hub-data");
     return saved ? JSON.parse(saved) : seedData;
   });
+  const [syncState, setSyncState] = useState("ログイン待ち");
+  const [isCloudReady, setIsCloudReady] = useState(false);
 
-  const save = (next: DataStore) => {
+  useEffect(() => {
+    if (!db || !user) {
+      setSyncState(user ? "Firestore未設定" : "ログイン待ち");
+      setIsCloudReady(false);
+      return undefined;
+    }
+
+    const ref = doc(db, "companyData", "main");
+    setSyncState("クラウド接続中");
+
+    return onSnapshot(
+      ref,
+      async (snapshot) => {
+        if (snapshot.exists()) {
+          const cloudData = snapshot.data().data as DataStore;
+          setData(cloudData);
+          localStorage.setItem("company-hub-data", JSON.stringify(cloudData));
+          setIsCloudReady(true);
+          setSyncState("Firestore同期中");
+          return;
+        }
+
+        await setDoc(ref, {
+          data: seedData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email,
+        });
+      },
+      (error) => {
+        setIsCloudReady(false);
+        setSyncState(error.message.includes("permission") ? "Firestore権限エラー" : "Firestore接続エラー");
+      },
+    );
+  }, [user]);
+
+  const save = async (next: DataStore) => {
     setData(next);
     localStorage.setItem("company-hub-data", JSON.stringify(next));
+
+    if (!db || !user) {
+      setSyncState("ローカル保存");
+      return;
+    }
+
+    try {
+      await setDoc(
+        doc(db, "companyData", "main"),
+        {
+          data: next,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email,
+        },
+        { merge: true },
+      );
+      setIsCloudReady(true);
+      setSyncState("Firestore同期中");
+    } catch (error) {
+      setIsCloudReady(false);
+      setSyncState(error instanceof Error ? error.message : "Firestore保存エラー");
+    }
   };
 
-  return [data, save] as const;
+  return [data, save, syncState, isCloudReady] as const;
 }
 
 export function App() {
   const [active, setActive] = useState<ModuleId>("dashboard");
   const [query, setQuery] = useState("");
-  const [data, saveData] = useLocalData();
+  const { user, authReady } = useAuthUser();
+  const [data, saveData, syncState, isCloudReady] = useCompanyData(user);
 
   const stats = useMemo(() => {
     const openApprovals = [...data.leaveRequests, ...data.expenses].filter((item) => item.status === "申請中").length;
@@ -286,7 +376,7 @@ export function App() {
     return { openApprovals, unpaid, pipeline, openTasks };
   }, [data]);
 
-  const update = <K extends keyof DataStore>(key: K, rows: DataStore[K]) => saveData({ ...data, [key]: rows });
+  const update = <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void saveData({ ...data, [key]: rows });
 
   const approve = (key: "leaveRequests" | "expenses", id: string, status: RequestItem["status"]) => {
     update(
@@ -294,6 +384,14 @@ export function App() {
       data[key].map((item) => (item.id === id ? { ...item, status } : item)) as DataStore[typeof key],
     );
   };
+
+  if (!authReady) {
+    return <div className="centerScreen">読み込み中...</div>;
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   return (
     <div className="shell">
@@ -321,9 +419,19 @@ export function App() {
             <h1>{modules.find((module) => module.id === active)?.label}</h1>
             <p>社員、申請、顧客、売上、書類をひとつの業務画面で管理します。</p>
           </div>
-          <div className="searchBox">
-            <Search size={18} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="全体検索" />
+          <div className="topbarActions">
+            <div className={isCloudReady ? "syncPill online" : "syncPill"}>
+              <CircleCheck size={16} />
+              <span>{syncState}</span>
+            </div>
+            <div className="searchBox">
+              <Search size={18} />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="全体検索" />
+            </div>
+            <button className="userButton" onClick={() => auth && signOut(auth)}>
+              <LogOut size={17} />
+              {user.email}
+            </button>
           </div>
         </header>
 
@@ -423,6 +531,70 @@ function Dashboard({ data, stats }: { data: DataStore; stats: { openApprovals: n
 
 function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return <div className="metric"><span>{icon}</span><small>{label}</small><strong>{value}</strong></div>;
+}
+
+function AuthScreen() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!auth) {
+      setError("Firebase Authが初期化されていません。");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setError("");
+      if (mode === "signup") {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (authError) {
+      setError(authError instanceof Error ? authError.message : "ログインに失敗しました。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="authShell">
+      <section className="authPanel">
+        <div className="brand authBrand">
+          <div className="brandMark">C</div>
+          <div>
+            <strong>Company Hub</strong>
+            <span>company-b9fe9</span>
+          </div>
+        </div>
+        <h1>{mode === "login" ? "ログイン" : "アカウント作成"}</h1>
+        <p>社内データをFirebase AuthとFirestoreで共有します。</p>
+
+        <form className="formStack" onSubmit={submit}>
+          <Field label="メールアドレス">
+            <input type="text" inputMode="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          </Field>
+          <Field label="パスワード">
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required />
+          </Field>
+          {error && <div className="errorBox">{error}</div>}
+          <button className="primary" disabled={busy}>
+            <LogIn size={17} />
+            {busy ? "処理中" : mode === "login" ? "ログイン" : "作成してログイン"}
+          </button>
+        </form>
+
+        <button className="textButton" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
+          {mode === "login" ? "新しくアカウントを作成" : "既存アカウントでログイン"}
+        </button>
+      </section>
+    </div>
+  );
 }
 
 function Employees({ data, update, query }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; query: string }) {

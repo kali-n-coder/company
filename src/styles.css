@@ -133,6 +133,14 @@ h1 {
   margin-top: 4px;
 }
 
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .searchBox {
   min-width: 280px;
   max-width: 420px;
@@ -151,6 +159,92 @@ h1 {
   border: 0;
   outline: 0;
   width: 100%;
+}
+
+.centerScreen,
+.authShell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: #f4f6f8;
+}
+
+.authPanel {
+  width: min(440px, 100%);
+  background: #ffffff;
+  border: 1px solid #dce3ea;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(23, 32, 38, 0.08);
+}
+
+.authBrand {
+  color: #172026;
+  padding: 0 0 18px;
+}
+
+.authPanel h1 {
+  margin-bottom: 6px;
+}
+
+.authPanel p {
+  color: #66727f;
+  margin-bottom: 18px;
+}
+
+.errorBox {
+  background: #ffe8e8;
+  color: #8b2c2c;
+  border: 1px solid #ffc9c9;
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.syncPill,
+.userButton,
+.secondaryButton,
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.syncPill {
+  background: #fff3d8;
+  color: #785300;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.syncPill.online {
+  background: #e8f6ef;
+  color: #17643f;
+}
+
+.userButton,
+.secondaryButton {
+  background: #eef1f4;
+  color: #25313a;
+}
+
+.secondaryButton {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.textButton {
+  width: 100%;
+  margin-top: 8px;
+  color: #0b65c2;
+  background: transparent;
 }
 
 .pageStack {
@@ -337,6 +431,12 @@ td button {
   white-space: nowrap;
 }
 
+.primary:disabled,
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .actions {
   display: flex;
   gap: 8px;
@@ -467,6 +567,15 @@ td {
 
   .topbar {
     display: grid;
+  }
+
+  .topbarActions {
+    justify-content: stretch;
+  }
+
+  .userButton,
+  .syncPill {
+    width: 100%;
   }
 
   .searchBox {

@@ -49,6 +49,20 @@ Web app:
 1:1044279774875:web:5fd86bd37baf883798403e
 ```
 
+The app now uses Firebase Authentication and Firestore when those services are enabled in the Firebase Console.
+
+Required Firebase Console settings:
+
+- Authentication: enable Email/Password sign-in
+- Authentication: optionally enable Google sign-in
+- Firestore Database: create the default database
+
+Deploy Firestore rules:
+
+```powershell
+npm.cmd run firebase:rules
+```
+
 ## Google Drive
 
 このPCではGoogle Drive for desktopの同期フォルダを使います。
