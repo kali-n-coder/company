@@ -155,6 +155,26 @@ type Invoice = {
   paid: boolean;
 };
 
+type FinancialAsset = {
+  id: string;
+  name: string;
+  category: string;
+  value: number;
+  acquiredAt: string;
+  note: string;
+};
+
+type Equipment = {
+  id: string;
+  name: string;
+  assetTag: string;
+  owner: string;
+  location: string;
+  condition: string;
+  purchaseDate: string;
+  value: number;
+};
+
 type Report = {
   id: string;
   employeeId?: string;
@@ -199,6 +219,8 @@ type DataStore = {
   customers: Customer[];
   projects: Project[];
   invoices: Invoice[];
+  financialAssets: FinancialAsset[];
+  equipment: Equipment[];
   reports: Report[];
   chats: Chat[];
   roles: Role[];
@@ -218,6 +240,8 @@ const seedData: DataStore = {
   customers: [],
   projects: [],
   invoices: [],
+  financialAssets: [],
+  equipment: [],
   reports: [],
   chats: [],
   roles: [],
@@ -250,7 +274,7 @@ function yen(value: number) {
 
 function canAccessModule(role: AccessRole, moduleId: ModuleId) {
   if (role === "admin") return true;
-  if (moduleId === "admin" || moduleId === "employees") return false;
+  if (moduleId === "admin") return false;
   if (moduleId === "finance") return role === "accounting";
   if (moduleId === "customers") return role === "manager" || role === "accounting";
   return true;
@@ -271,7 +295,7 @@ function scopedDataFor(role: AccessRole, employee: Employee | undefined, data: D
 
   return {
     ...data,
-    employees: employee ? [employee] : [],
+    employees: data.employees,
     attendance: data.attendance.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
     leaveRequests: data.leaveRequests.filter((row) => isPersonalRecord(row.requesterId, row.requester, employee)),
     shifts: data.shifts.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
@@ -280,6 +304,8 @@ function scopedDataFor(role: AccessRole, employee: Employee | undefined, data: D
     customers: canSeeMoney ? data.customers : [],
     projects: canSeeMoney ? data.projects : [],
     invoices: canSeeMoney ? data.invoices : [],
+    financialAssets: canSeeMoney ? data.financialAssets : [],
+    equipment: canSeeMoney ? data.equipment : [],
     reports: data.reports.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
   };
 }
@@ -325,7 +351,7 @@ function useCompanyData(user: User | null) {
       ref,
       async (snapshot) => {
         if (snapshot.exists()) {
-          const cloudData = (snapshot.data().data || seedData) as DataStore;
+          const cloudData = { ...seedData, ...(snapshot.data().data || {}) } as DataStore;
           setData(cloudData);
           localStorage.setItem("company-hub-data", JSON.stringify(cloudData));
           setIsCloudReady(true);
@@ -411,6 +437,8 @@ export function App() {
 
   const update = <K extends keyof DataStore>(key: K, rows: DataStore[K]) => {
     if (!hasLoadedCloud) return;
+    if (key === "employees" && currentRole !== "admin") return;
+    if ((key === "invoices" || key === "financialAssets" || key === "equipment") && currentRole !== "admin" && currentRole !== "accounting") return;
     void saveData({ ...data, [key]: rows });
   };
 
@@ -514,8 +542,8 @@ export function App() {
           </div>
         </header>
 
-        {active === "dashboard" && <Dashboard data={scopedData} stats={stats} />}
-        {active === "employees" && <Employees data={data} update={update} query={query} />}
+        {active === "dashboard" && <Dashboard data={scopedData} companyData={data} stats={stats} />}
+        {active === "employees" && <Employees data={data} update={update} query={query} canEdit={currentRole === "admin"} />}
         {active === "attendance" && <AttendanceView data={data} visibleRows={scopedData.attendance} update={update} currentEmployee={currentEmployee} canManage={currentRole === "admin" || currentRole === "manager"} />}
         {active === "leave" && <RequestsView title="休暇申請" rows={scopedData.leaveRequests} canApprove={canApprove(currentRole)} currentEmployee={currentEmployee} onApprove={(id, status) => approve("leaveRequests", id, status)} onAdd={(item) => update("leaveRequests", [item, ...data.leaveRequests])} />}
         {active === "shifts" && <Shifts data={data} visibleRows={scopedData.shifts} update={update} currentEmployee={currentEmployee} canManage={currentRole === "admin" || currentRole === "manager"} />}
@@ -562,11 +590,11 @@ function Status({ value }: { value: string }) {
   return <span className={`status status-${value}`}>{value}</span>;
 }
 
-function Dashboard({ data, stats }: { data: DataStore; stats: { openApprovals: number; unpaid: number; pipeline: number; openTasks: number } }) {
+function Dashboard({ data, companyData, stats }: { data: DataStore; companyData: DataStore; stats: { openApprovals: number; unpaid: number; pipeline: number; openTasks: number } }) {
   return (
     <div className="pageStack">
       <div className="statGrid">
-        <Card><Metric icon={<Users />} label="社員" value={`${data.employees.length}名`} /></Card>
+        <Card><Metric icon={<Users />} label="社員" value={`${companyData.employees.length}名`} /></Card>
         <Card><Metric icon={<Inbox />} label="承認待ち" value={`${stats.openApprovals}件`} /></Card>
         <Card><Metric icon={<JapaneseYen />} label="未入金" value={yen(stats.unpaid)} /></Card>
         <Card><Metric icon={<BarChart3 />} label="案件総額" value={yen(stats.pipeline)} /></Card>
@@ -676,7 +704,7 @@ function AuthScreen() {
   );
 }
 
-function Employees({ data, update, query }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; query: string }) {
+function Employees({ data, update, query, canEdit }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; query: string; canEdit: boolean }) {
   const [draft, setDraft] = useState({ name: "", department: "営業", role: "", accessRole: "employee" as AccessRole, email: "", phone: "", status: "在籍" as Employee["status"] });
   const rows = data.employees.filter((employee) => JSON.stringify(employee).toLowerCase().includes(query.toLowerCase()));
   const patchEmployee = (id: string, patch: Partial<Employee>) => {
@@ -690,29 +718,36 @@ function Employees({ data, update, query }: { data: DataStore; update: <K extend
   };
   return (
     <div className="pageStack">
-      <Card>
-        <SectionTitle icon={<UserPlus size={19} />} title="社員を追加" />
-        <form className="formGrid" onSubmit={add}>
-          <Field label="名前"><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
-          <Field label="部署"><input value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })} /></Field>
-          <Field label="役職"><input value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} /></Field>
-          <Field label="権限"><select value={draft.accessRole} onChange={(e) => setDraft({ ...draft, accessRole: e.target.value as AccessRole })}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-          <Field label="メール"><input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
-          <Field label="電話"><input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></Field>
-          <button className="primary"><Plus size={17} />追加</button>
-        </form>
-      </Card>
+      {canEdit ? (
+        <Card>
+          <SectionTitle icon={<UserPlus size={19} />} title="社員を追加" />
+          <form className="formGrid" onSubmit={add}>
+            <Field label="名前"><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
+            <Field label="部署"><input value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })} /></Field>
+            <Field label="役職"><input value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} /></Field>
+            <Field label="権限"><select value={draft.accessRole} onChange={(e) => setDraft({ ...draft, accessRole: e.target.value as AccessRole })}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+            <Field label="メール"><input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
+            <Field label="電話"><input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></Field>
+            <button className="primary"><Plus size={17} />追加</button>
+          </form>
+        </Card>
+      ) : (
+        <Card>
+          <SectionTitle icon={<Users size={19} />} title="社員一覧" />
+          <p className="muted">社員情報は閲覧のみできます。追加・編集・削除は管理者だけが実行できます。</p>
+        </Card>
+      )}
       <DataTable
         headers={["名前", "部署", "役職", "権限", "メール", "電話", "状態", ""]}
         rows={rows.map((employee) => [
-          <input className="tableInput" value={employee.name} onChange={(e) => patchEmployee(employee.id, { name: e.target.value })} />,
-          <input className="tableInput" value={employee.department} onChange={(e) => patchEmployee(employee.id, { department: e.target.value })} />,
-          <input className="tableInput" value={employee.role} onChange={(e) => patchEmployee(employee.id, { role: e.target.value })} />,
-          <select className="tableInput" value={employee.accessRole} onChange={(e) => patchEmployee(employee.id, { accessRole: e.target.value as AccessRole })}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>,
-          <input className="tableInput" value={employee.email} onChange={(e) => patchEmployee(employee.id, { email: e.target.value, accountEmail: e.target.value })} />,
-          <input className="tableInput" value={employee.phone} onChange={(e) => patchEmployee(employee.id, { phone: e.target.value })} />,
-          <select className="tableInput" value={employee.status} onChange={(e) => patchEmployee(employee.id, { status: e.target.value as Employee["status"] })}><option>在籍</option><option>休職</option><option>退職</option></select>,
-          <button className="iconBtn" onClick={() => update("employees", data.employees.filter((row) => row.id !== employee.id))}><Trash2 size={16} /></button>,
+          canEdit ? <input className="tableInput" value={employee.name} onChange={(e) => patchEmployee(employee.id, { name: e.target.value })} /> : employee.name,
+          canEdit ? <input className="tableInput" value={employee.department} onChange={(e) => patchEmployee(employee.id, { department: e.target.value })} /> : employee.department,
+          canEdit ? <input className="tableInput" value={employee.role} onChange={(e) => patchEmployee(employee.id, { role: e.target.value })} /> : employee.role,
+          canEdit ? <select className="tableInput" value={employee.accessRole} onChange={(e) => patchEmployee(employee.id, { accessRole: e.target.value as AccessRole })}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : accessRoleLabels[employee.accessRole],
+          canEdit ? <input className="tableInput" value={employee.email} onChange={(e) => patchEmployee(employee.id, { email: e.target.value, accountEmail: e.target.value })} /> : employee.email,
+          canEdit ? <input className="tableInput" value={employee.phone} onChange={(e) => patchEmployee(employee.id, { phone: e.target.value })} /> : employee.phone,
+          canEdit ? <select className="tableInput" value={employee.status} onChange={(e) => patchEmployee(employee.id, { status: e.target.value as Employee["status"] })}><option>在籍</option><option>休職</option><option>退職</option></select> : <Status value={employee.status} />,
+          canEdit ? <button className="iconBtn" onClick={() => update("employees", data.employees.filter((row) => row.id !== employee.id))}><Trash2 size={16} /></button> : "",
         ])}
       />
     </div>
@@ -816,7 +851,67 @@ function Customers({ data, update }: { data: DataStore; update: <K extends keyof
 
 function Finance({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
   const [draft, setDraft] = useState({ customer: "", project: "", amount: 0, due: today, paid: false });
-  return <SimpleModule title="請求登録" icon={<JapaneseYen size={19} />} onSubmit={() => update("invoices", [{ id: uid("inv"), ...draft }, ...data.invoices])} form={<><Field label="顧客"><input value={draft.customer} onChange={(e) => setDraft({ ...draft, customer: e.target.value })} /></Field><Field label="案件"><input value={draft.project} onChange={(e) => setDraft({ ...draft, project: e.target.value })} /></Field><Field label="金額"><input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></Field><Field label="支払期限"><input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></Field><label className="check"><input type="checkbox" checked={draft.paid} onChange={(e) => setDraft({ ...draft, paid: e.target.checked })} />入金済み</label></>} table={<DataTable headers={["顧客", "案件", "金額", "期限", "入金"]} rows={data.invoices.map((r) => [r.customer, r.project, yen(r.amount), r.due, <button onClick={() => update("invoices", data.invoices.map((invoice) => invoice.id === r.id ? { ...invoice, paid: !invoice.paid } : invoice))}><Status value={r.paid ? "入金済" : "未入金"} /></button>])} />} />;
+  const [assetDraft, setAssetDraft] = useState({ name: "", category: "現金・預金", value: 0, acquiredAt: today, note: "" });
+  const [equipmentDraft, setEquipmentDraft] = useState({ name: "", assetTag: "", owner: "", location: "本社", condition: "使用中", purchaseDate: today, value: 0 });
+  const paidTotal = data.invoices.filter((invoice) => invoice.paid).reduce((sum, invoice) => sum + invoice.amount, 0);
+  const unpaidTotal = data.invoices.filter((invoice) => !invoice.paid).reduce((sum, invoice) => sum + invoice.amount, 0);
+  const assetTotal = data.financialAssets.reduce((sum, asset) => sum + asset.value, 0);
+  const equipmentTotal = data.equipment.reduce((sum, item) => sum + item.value, 0);
+
+  return (
+    <div className="pageStack">
+      <div className="statGrid">
+        <Card><Metric icon={<JapaneseYen />} label="入金済み" value={yen(paidTotal)} /></Card>
+        <Card><Metric icon={<Inbox />} label="未入金" value={yen(unpaidTotal)} /></Card>
+        <Card><Metric icon={<WalletCards />} label="会社資産" value={yen(assetTotal)} /></Card>
+        <Card><Metric icon={<Building2 />} label="備品評価額" value={yen(equipmentTotal)} /></Card>
+      </div>
+
+      <SimpleModule
+        title="請求登録"
+        icon={<JapaneseYen size={19} />}
+        onSubmit={() => update("invoices", [{ id: uid("inv"), ...draft }, ...data.invoices])}
+        form={<>
+          <Field label="顧客"><input value={draft.customer} onChange={(e) => setDraft({ ...draft, customer: e.target.value })} /></Field>
+          <Field label="案件"><input value={draft.project} onChange={(e) => setDraft({ ...draft, project: e.target.value })} /></Field>
+          <Field label="金額"><input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></Field>
+          <Field label="支払期限"><input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></Field>
+          <label className="check"><input type="checkbox" checked={draft.paid} onChange={(e) => setDraft({ ...draft, paid: e.target.checked })} />入金済み</label>
+        </>}
+        table={<DataTable headers={["顧客", "案件", "金額", "期限", "入金"]} rows={data.invoices.map((r) => [r.customer, r.project, yen(r.amount), r.due, <button onClick={() => update("invoices", data.invoices.map((invoice) => invoice.id === r.id ? { ...invoice, paid: !invoice.paid } : invoice))}><Status value={r.paid ? "入金済" : "未入金"} /></button>])} />}
+      />
+
+      <SimpleModule
+        title="会社資産登録"
+        icon={<WalletCards size={19} />}
+        onSubmit={() => update("financialAssets", [{ id: uid("asset"), ...assetDraft }, ...data.financialAssets])}
+        form={<>
+          <Field label="資産名"><input value={assetDraft.name} onChange={(e) => setAssetDraft({ ...assetDraft, name: e.target.value })} /></Field>
+          <Field label="分類"><select value={assetDraft.category} onChange={(e) => setAssetDraft({ ...assetDraft, category: e.target.value })}><option>現金・預金</option><option>売掛金</option><option>車両</option><option>工具・機材</option><option>その他</option></select></Field>
+          <Field label="金額"><input type="number" value={assetDraft.value} onChange={(e) => setAssetDraft({ ...assetDraft, value: Number(e.target.value) })} /></Field>
+          <Field label="取得日"><input type="date" value={assetDraft.acquiredAt} onChange={(e) => setAssetDraft({ ...assetDraft, acquiredAt: e.target.value })} /></Field>
+          <Field label="メモ"><input value={assetDraft.note} onChange={(e) => setAssetDraft({ ...assetDraft, note: e.target.value })} /></Field>
+        </>}
+        table={<DataTable headers={["資産名", "分類", "金額", "取得日", "メモ"]} rows={data.financialAssets.map((r) => [r.name, r.category, yen(r.value), r.acquiredAt, r.note])} />}
+      />
+
+      <SimpleModule
+        title="備品台帳"
+        icon={<ClipboardList size={19} />}
+        onSubmit={() => update("equipment", [{ id: uid("eqp"), ...equipmentDraft }, ...data.equipment])}
+        form={<>
+          <Field label="備品名"><input value={equipmentDraft.name} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, name: e.target.value })} /></Field>
+          <Field label="管理番号"><input value={equipmentDraft.assetTag} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, assetTag: e.target.value })} /></Field>
+          <Field label="利用者"><input value={equipmentDraft.owner} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, owner: e.target.value })} /></Field>
+          <Field label="場所"><input value={equipmentDraft.location} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, location: e.target.value })} /></Field>
+          <Field label="状態"><select value={equipmentDraft.condition} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, condition: e.target.value })}><option>使用中</option><option>保管中</option><option>修理中</option><option>廃棄予定</option></select></Field>
+          <Field label="購入日"><input type="date" value={equipmentDraft.purchaseDate} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, purchaseDate: e.target.value })} /></Field>
+          <Field label="金額"><input type="number" value={equipmentDraft.value} onChange={(e) => setEquipmentDraft({ ...equipmentDraft, value: Number(e.target.value) })} /></Field>
+        </>}
+        table={<DataTable headers={["備品名", "管理番号", "利用者", "場所", "状態", "購入日", "金額"]} rows={data.equipment.map((r) => [r.name, r.assetTag, r.owner, r.location, <Status value={r.condition} />, r.purchaseDate, yen(r.value)])} />}
+      />
+    </div>
+  );
 }
 
 function Reports({ data, visibleRows, update, currentEmployee }: { data: DataStore; visibleRows: Report[]; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; currentEmployee?: Employee }) {
