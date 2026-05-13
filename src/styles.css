@@ -402,6 +402,12 @@ textarea {
   color: #172026;
 }
 
+.tableInput {
+  min-width: 120px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
 textarea {
   min-height: 86px;
   resize: vertical;

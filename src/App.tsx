@@ -654,6 +654,9 @@ function AuthScreen() {
 function Employees({ data, update, query }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; query: string }) {
   const [draft, setDraft] = useState({ name: "", department: "営業", role: "", accessRole: "employee" as AccessRole, email: "", phone: "", status: "在籍" as Employee["status"] });
   const rows = data.employees.filter((employee) => JSON.stringify(employee).toLowerCase().includes(query.toLowerCase()));
+  const patchEmployee = (id: string, patch: Partial<Employee>) => {
+    update("employees", data.employees.map((employee) => (employee.id === id ? { ...employee, ...patch } : employee)));
+  };
   const add = (event: FormEvent) => {
     event.preventDefault();
     if (!draft.name) return;
@@ -677,13 +680,13 @@ function Employees({ data, update, query }: { data: DataStore; update: <K extend
       <DataTable
         headers={["名前", "部署", "役職", "権限", "メール", "電話", "状態", ""]}
         rows={rows.map((employee) => [
-          employee.name,
-          employee.department,
-          employee.role,
-          <select value={employee.accessRole} onChange={(e) => update("employees", data.employees.map((row) => row.id === employee.id ? { ...row, accessRole: e.target.value as AccessRole } : row))}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>,
-          employee.email,
-          employee.phone,
-          <Status value={employee.status} />,
+          <input className="tableInput" value={employee.name} onChange={(e) => patchEmployee(employee.id, { name: e.target.value })} />,
+          <input className="tableInput" value={employee.department} onChange={(e) => patchEmployee(employee.id, { department: e.target.value })} />,
+          <input className="tableInput" value={employee.role} onChange={(e) => patchEmployee(employee.id, { role: e.target.value })} />,
+          <select className="tableInput" value={employee.accessRole} onChange={(e) => patchEmployee(employee.id, { accessRole: e.target.value as AccessRole })}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>,
+          <input className="tableInput" value={employee.email} onChange={(e) => patchEmployee(employee.id, { email: e.target.value, accountEmail: e.target.value })} />,
+          <input className="tableInput" value={employee.phone} onChange={(e) => patchEmployee(employee.id, { phone: e.target.value })} />,
+          <select className="tableInput" value={employee.status} onChange={(e) => patchEmployee(employee.id, { status: e.target.value as Employee["status"] })}><option>在籍</option><option>休職</option><option>退職</option></select>,
           <button className="iconBtn" onClick={() => update("employees", data.employees.filter((row) => row.id !== employee.id))}><Trash2 size={16} /></button>,
         ])}
       />
