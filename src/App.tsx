@@ -58,16 +58,22 @@ type ModuleId =
 
 type Employee = {
   id: string;
+  authUid?: string;
+  accountEmail?: string;
   name: string;
   department: string;
   role: string;
+  accessRole: AccessRole;
   email: string;
   phone: string;
   status: "在籍" | "休職" | "退職";
 };
 
+type AccessRole = "admin" | "manager" | "accounting" | "employee";
+
 type Attendance = {
   id: string;
+  employeeId?: string;
   employee: string;
   date: string;
   start: string;
@@ -77,6 +83,7 @@ type Attendance = {
 
 type RequestItem = {
   id: string;
+  requesterId?: string;
   type: string;
   title: string;
   requester: string;
@@ -87,6 +94,7 @@ type RequestItem = {
 
 type Shift = {
   id: string;
+  employeeId?: string;
   employee: string;
   date: string;
   time: string;
@@ -112,6 +120,7 @@ type DocumentItem = {
 
 type Task = {
   id: string;
+  assigneeId?: string;
   title: string;
   assignee: string;
   due: string;
@@ -148,6 +157,7 @@ type Invoice = {
 
 type Report = {
   id: string;
+  employeeId?: string;
   employee: string;
   type: "日報" | "週報";
   date: string;
@@ -156,6 +166,7 @@ type Report = {
 
 type Chat = {
   id: string;
+  authorId?: string;
   author: string;
   channel: string;
   message: string;
@@ -167,6 +178,13 @@ type Role = {
   name: string;
   permissions: string;
   members: number;
+};
+
+const accessRoleLabels: Record<AccessRole, string> = {
+  admin: "管理者",
+  manager: "マネージャー",
+  accounting: "経理",
+  employee: "一般社員",
 };
 
 type DataStore = {
@@ -189,59 +207,20 @@ type DataStore = {
 const today = "2026-05-13";
 
 const seedData: DataStore = {
-  employees: [
-    { id: "emp-1", name: "佐藤 美咲", department: "営業", role: "営業マネージャー", email: "misaki@example.com", phone: "090-1000-0001", status: "在籍" },
-    { id: "emp-2", name: "田中 健", department: "開発", role: "エンジニア", email: "ken@example.com", phone: "090-1000-0002", status: "在籍" },
-    { id: "emp-3", name: "鈴木 葵", department: "管理", role: "経理", email: "aoi@example.com", phone: "090-1000-0003", status: "在籍" },
-  ],
-  attendance: [
-    { id: "att-1", employee: "佐藤 美咲", date: today, start: "09:00", end: "18:00", note: "通常勤務" },
-    { id: "att-2", employee: "田中 健", date: today, start: "10:00", end: "19:00", note: "リモート" },
-  ],
-  leaveRequests: [
-    { id: "leave-1", type: "有給", title: "通院のため午後休", requester: "田中 健", date: "2026-05-17", status: "申請中" },
-  ],
-  shifts: [
-    { id: "shift-1", employee: "佐藤 美咲", date: "2026-05-14", time: "09:00-18:00", location: "本社" },
-    { id: "shift-2", employee: "田中 健", date: "2026-05-14", time: "10:00-19:00", location: "リモート" },
-  ],
-  announcements: [
-    { id: "ann-1", title: "5月全社会議", body: "金曜16時からオンラインで実施します。", department: "全社", pinned: true },
-    { id: "ann-2", title: "経費締め日", body: "今月の経費申請は25日までに提出してください。", department: "管理", pinned: false },
-  ],
-  documents: [
-    { id: "doc-1", title: "就業規則", category: "規程", owner: "管理", visibility: "全社", driveUrl: "G:\\マイドライブ\\Company App Files\\Manuals" },
-  ],
-  tasks: [
-    { id: "task-1", title: "見積テンプレート更新", assignee: "鈴木 葵", due: "2026-05-16", status: "進行中", priority: "高" },
-    { id: "task-2", title: "新入社員アカウント作成", assignee: "田中 健", due: "2026-05-15", status: "未着手", priority: "中" },
-  ],
-  expenses: [
-    { id: "exp-1", type: "交通費", title: "顧客訪問交通費", requester: "佐藤 美咲", amount: 2480, date: "2026-05-12", status: "申請中" },
-  ],
-  customers: [
-    { id: "cus-1", name: "青葉商事", contact: "高橋様", email: "aoba@example.com", status: "商談中", lastContact: "2026-05-11" },
-    { id: "cus-2", name: "北斗物流", contact: "山本様", email: "hokuto@example.com", status: "契約中", lastContact: "2026-05-10" },
-  ],
-  projects: [
-    { id: "prj-1", customer: "青葉商事", name: "受発注システム", owner: "佐藤 美咲", value: 1200000, status: "提案" },
-    { id: "prj-2", customer: "北斗物流", name: "社内ポータル", owner: "田中 健", value: 850000, status: "進行中" },
-  ],
-  invoices: [
-    { id: "inv-1", customer: "北斗物流", project: "社内ポータル", amount: 425000, due: "2026-05-31", paid: false },
-    { id: "inv-2", customer: "青葉商事", project: "受発注システム", amount: 220000, due: "2026-05-20", paid: true },
-  ],
-  reports: [
-    { id: "rep-1", employee: "佐藤 美咲", type: "日報", date: today, summary: "青葉商事へ提案資料を送付。次回打ち合わせ日程を調整中。" },
-  ],
-  chats: [
-    { id: "chat-1", author: "鈴木 葵", channel: "経費", message: "交通費の領収書リンクも書類管理へ登録してください。", time: "09:30" },
-  ],
-  roles: [
-    { id: "role-1", name: "管理者", permissions: "全機能、権限管理、データ出力", members: 1 },
-    { id: "role-2", name: "一般社員", permissions: "申請、日報、タスク、掲示板閲覧", members: 12 },
-    { id: "role-3", name: "経理", permissions: "経費、請求、入金、売上管理", members: 2 },
-  ],
+  employees: [],
+  attendance: [],
+  leaveRequests: [],
+  shifts: [],
+  announcements: [],
+  documents: [],
+  tasks: [],
+  expenses: [],
+  customers: [],
+  projects: [],
+  invoices: [],
+  reports: [],
+  chats: [],
+  roles: [],
 };
 
 const modules: Array<{ id: ModuleId; label: string; icon: ReactNode }> = [
@@ -269,6 +248,42 @@ function yen(value: number) {
   return new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(value);
 }
 
+function canAccessModule(role: AccessRole, moduleId: ModuleId) {
+  if (role === "admin") return true;
+  if (moduleId === "admin" || moduleId === "employees") return false;
+  if (moduleId === "finance") return role === "accounting";
+  if (moduleId === "customers") return role === "manager" || role === "accounting";
+  return true;
+}
+
+function canApprove(role: AccessRole) {
+  return role === "admin" || role === "manager" || role === "accounting";
+}
+
+function isPersonalRecord(recordEmployeeId: string | undefined, recordName: string, employee: Employee | undefined) {
+  if (!employee) return false;
+  return recordEmployeeId ? recordEmployeeId === employee.id : recordName === employee.name;
+}
+
+function scopedDataFor(role: AccessRole, employee: Employee | undefined, data: DataStore): DataStore {
+  if (role === "admin" || role === "manager") return data;
+  const canSeeMoney = role === "accounting";
+
+  return {
+    ...data,
+    employees: employee ? [employee] : [],
+    attendance: data.attendance.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
+    leaveRequests: data.leaveRequests.filter((row) => isPersonalRecord(row.requesterId, row.requester, employee)),
+    shifts: data.shifts.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
+    tasks: data.tasks.filter((row) => !row.assigneeId || isPersonalRecord(row.assigneeId, row.assignee, employee)),
+    expenses: canSeeMoney ? data.expenses : data.expenses.filter((row) => isPersonalRecord(row.requesterId, row.requester, employee)),
+    customers: canSeeMoney ? data.customers : [],
+    projects: canSeeMoney ? data.projects : [],
+    invoices: canSeeMoney ? data.invoices : [],
+    reports: data.reports.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
+  };
+}
+
 function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -289,10 +304,7 @@ function useAuthUser() {
 }
 
 function useCompanyData(user: User | null) {
-  const [data, setData] = useState<DataStore>(() => {
-    const saved = localStorage.getItem("company-hub-data");
-    return saved ? JSON.parse(saved) : seedData;
-  });
+  const [data, setData] = useState<DataStore>(seedData);
   const [syncState, setSyncState] = useState("ログイン待ち");
   const [isCloudReady, setIsCloudReady] = useState(false);
 
@@ -367,23 +379,65 @@ export function App() {
   const [query, setQuery] = useState("");
   const { user, authReady } = useAuthUser();
   const [data, saveData, syncState, isCloudReady] = useCompanyData(user);
+  const currentEmployee = useMemo(
+    () => data.employees.find((employee) => employee.authUid === user?.uid || employee.accountEmail === user?.email),
+    [data.employees, user],
+  );
+  const currentRole: AccessRole = currentEmployee?.accessRole || "employee";
+  const visibleModules = useMemo(() => modules.filter((module) => canAccessModule(currentRole, module.id)), [currentRole]);
+  const scopedData = useMemo(() => scopedDataFor(currentRole, currentEmployee, data), [currentRole, currentEmployee, data]);
 
   const stats = useMemo(() => {
-    const openApprovals = [...data.leaveRequests, ...data.expenses].filter((item) => item.status === "申請中").length;
-    const unpaid = data.invoices.filter((invoice) => !invoice.paid).reduce((sum, invoice) => sum + invoice.amount, 0);
-    const pipeline = data.projects.reduce((sum, project) => sum + project.value, 0);
-    const openTasks = data.tasks.filter((task) => task.status !== "完了").length;
+    const openApprovals = [...scopedData.leaveRequests, ...scopedData.expenses].filter((item) => item.status === "申請中").length;
+    const unpaid = scopedData.invoices.filter((invoice) => !invoice.paid).reduce((sum, invoice) => sum + invoice.amount, 0);
+    const pipeline = scopedData.projects.reduce((sum, project) => sum + project.value, 0);
+    const openTasks = scopedData.tasks.filter((task) => task.status !== "完了").length;
     return { openApprovals, unpaid, pipeline, openTasks };
-  }, [data]);
+  }, [scopedData]);
 
   const update = <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void saveData({ ...data, [key]: rows });
 
   const approve = (key: "leaveRequests" | "expenses", id: string, status: RequestItem["status"]) => {
+    if (!canApprove(currentRole)) return;
     update(
       key,
       data[key].map((item) => (item.id === id ? { ...item, status } : item)) as DataStore[typeof key],
     );
   };
+
+  useEffect(() => {
+    if (!user || currentEmployee) return;
+    const firstEmployee = data.employees.length === 0;
+    const selfEmployee: Employee = {
+      id: uid("emp"),
+      authUid: user.uid,
+      accountEmail: user.email || "",
+      name: user.email?.split("@")[0] || "未設定ユーザー",
+      department: firstEmployee ? "管理" : "未設定",
+      role: firstEmployee ? "初期管理者" : "一般社員",
+      accessRole: firstEmployee ? "admin" : "employee",
+      email: user.email || "",
+      phone: "",
+      status: "在籍",
+    };
+    void saveData({ ...data, employees: [selfEmployee, ...data.employees] });
+  }, [currentEmployee, data, saveData, user]);
+
+  useEffect(() => {
+    if (!user || !currentEmployee || currentEmployee.authUid === user.uid) return;
+    void saveData({
+      ...data,
+      employees: data.employees.map((employee) =>
+        employee.id === currentEmployee.id ? { ...employee, authUid: user.uid, accountEmail: user.email || employee.accountEmail } : employee,
+      ),
+    });
+  }, [currentEmployee, data, saveData, user]);
+
+  useEffect(() => {
+    if (!canAccessModule(currentRole, active)) {
+      setActive("dashboard");
+    }
+  }, [active, currentRole]);
 
   if (!authReady) {
     return <div className="centerScreen">読み込み中...</div>;
@@ -404,7 +458,7 @@ export function App() {
           </div>
         </div>
         <nav>
-          {modules.map((module) => (
+          {visibleModules.map((module) => (
             <button key={module.id} className={active === module.id ? "navItem active" : "navItem"} onClick={() => setActive(module.id)}>
               {module.icon}
               <span>{module.label}</span>
@@ -417,7 +471,7 @@ export function App() {
         <header className="topbar">
           <div>
             <h1>{modules.find((module) => module.id === active)?.label}</h1>
-            <p>社員、申請、顧客、売上、書類をひとつの業務画面で管理します。</p>
+            <p>{currentEmployee ? `${currentEmployee.name} / ${accessRoleLabels[currentRole]}` : "社員情報を準備しています。"}</p>
           </div>
           <div className="topbarActions">
             <div className={isCloudReady ? "syncPill online" : "syncPill"}>
@@ -435,19 +489,19 @@ export function App() {
           </div>
         </header>
 
-        {active === "dashboard" && <Dashboard data={data} stats={stats} />}
+        {active === "dashboard" && <Dashboard data={scopedData} stats={stats} />}
         {active === "employees" && <Employees data={data} update={update} query={query} />}
-        {active === "attendance" && <AttendanceView data={data} update={update} />}
-        {active === "leave" && <RequestsView title="休暇申請" rows={data.leaveRequests} onApprove={(id, status) => approve("leaveRequests", id, status)} onAdd={(item) => update("leaveRequests", [item, ...data.leaveRequests])} />}
-        {active === "shifts" && <Shifts data={data} update={update} />}
+        {active === "attendance" && <AttendanceView data={data} visibleRows={scopedData.attendance} update={update} currentEmployee={currentEmployee} canManage={currentRole === "admin" || currentRole === "manager"} />}
+        {active === "leave" && <RequestsView title="休暇申請" rows={scopedData.leaveRequests} canApprove={canApprove(currentRole)} currentEmployee={currentEmployee} onApprove={(id, status) => approve("leaveRequests", id, status)} onAdd={(item) => update("leaveRequests", [item, ...data.leaveRequests])} />}
+        {active === "shifts" && <Shifts data={data} visibleRows={scopedData.shifts} update={update} currentEmployee={currentEmployee} canManage={currentRole === "admin" || currentRole === "manager"} />}
         {active === "announcements" && <Announcements data={data} update={update} />}
         {active === "documents" && <Documents data={data} update={update} />}
-        {active === "tasks" && <Tasks data={data} update={update} />}
-        {active === "expenses" && <RequestsView title="経費申請・承認" rows={data.expenses} onApprove={(id, status) => approve("expenses", id, status)} onAdd={(item) => update("expenses", [item, ...data.expenses])} expense />}
+        {active === "tasks" && <Tasks data={data} visibleRows={scopedData.tasks} update={update} currentEmployee={currentEmployee} canManage={currentRole === "admin" || currentRole === "manager"} />}
+        {active === "expenses" && <RequestsView title="経費申請・承認" rows={scopedData.expenses} canApprove={canApprove(currentRole)} currentEmployee={currentEmployee} onApprove={(id, status) => approve("expenses", id, status)} onAdd={(item) => update("expenses", [item, ...data.expenses])} expense />}
         {active === "customers" && <Customers data={data} update={update} />}
         {active === "finance" && <Finance data={data} update={update} />}
-        {active === "reports" && <Reports data={data} update={update} />}
-        {active === "chat" && <ChatView data={data} update={update} />}
+        {active === "reports" && <Reports data={data} visibleRows={scopedData.reports} update={update} currentEmployee={currentEmployee} />}
+        {active === "chat" && <ChatView data={data} update={update} currentEmployee={currentEmployee} />}
         {active === "admin" && <Admin data={data} update={update} />}
       </main>
     </div>
@@ -598,13 +652,13 @@ function AuthScreen() {
 }
 
 function Employees({ data, update, query }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; query: string }) {
-  const [draft, setDraft] = useState({ name: "", department: "営業", role: "", email: "", phone: "", status: "在籍" as Employee["status"] });
+  const [draft, setDraft] = useState({ name: "", department: "営業", role: "", accessRole: "employee" as AccessRole, email: "", phone: "", status: "在籍" as Employee["status"] });
   const rows = data.employees.filter((employee) => JSON.stringify(employee).toLowerCase().includes(query.toLowerCase()));
   const add = (event: FormEvent) => {
     event.preventDefault();
     if (!draft.name) return;
-    update("employees", [{ id: uid("emp"), ...draft }, ...data.employees]);
-    setDraft({ name: "", department: "営業", role: "", email: "", phone: "", status: "在籍" });
+    update("employees", [{ id: uid("emp"), accountEmail: draft.email, ...draft }, ...data.employees]);
+    setDraft({ name: "", department: "営業", role: "", accessRole: "employee", email: "", phone: "", status: "在籍" });
   };
   return (
     <div className="pageStack">
@@ -614,17 +668,19 @@ function Employees({ data, update, query }: { data: DataStore; update: <K extend
           <Field label="名前"><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
           <Field label="部署"><input value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })} /></Field>
           <Field label="役職"><input value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} /></Field>
+          <Field label="権限"><select value={draft.accessRole} onChange={(e) => setDraft({ ...draft, accessRole: e.target.value as AccessRole })}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="メール"><input value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
           <Field label="電話"><input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></Field>
           <button className="primary"><Plus size={17} />追加</button>
         </form>
       </Card>
       <DataTable
-        headers={["名前", "部署", "役職", "メール", "電話", "状態", ""]}
+        headers={["名前", "部署", "役職", "権限", "メール", "電話", "状態", ""]}
         rows={rows.map((employee) => [
           employee.name,
           employee.department,
           employee.role,
+          <select value={employee.accessRole} onChange={(e) => update("employees", data.employees.map((row) => row.id === employee.id ? { ...row, accessRole: e.target.value as AccessRole } : row))}>{Object.entries(accessRoleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>,
           employee.email,
           employee.phone,
           <Status value={employee.status} />,
@@ -635,35 +691,38 @@ function Employees({ data, update, query }: { data: DataStore; update: <K extend
   );
 }
 
-function AttendanceView({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ employee: data.employees[0]?.name || "", date: today, start: "09:00", end: "18:00", note: "" });
+function AttendanceView({ data, visibleRows, update, currentEmployee, canManage }: { data: DataStore; visibleRows: Attendance[]; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; currentEmployee?: Employee; canManage: boolean }) {
+  const defaultEmployee = currentEmployee || data.employees[0];
+  const [draft, setDraft] = useState({ employeeId: defaultEmployee?.id || "", employee: defaultEmployee?.name || "", date: today, start: "09:00", end: "18:00", note: "" });
   return (
     <SimpleModule
       title="勤怠記録"
       icon={<Clock size={19} />}
       onSubmit={() => {
-        update("attendance", [{ id: uid("att"), ...draft }, ...data.attendance]);
+        const selected = data.employees.find((employee) => employee.id === draft.employeeId) || currentEmployee;
+        if (!selected) return;
+        update("attendance", [{ id: uid("att"), ...draft, employeeId: selected.id, employee: selected.name }, ...data.attendance]);
         setDraft({ ...draft, note: "" });
       }}
       form={<>
-        <Field label="社員"><select value={draft.employee} onChange={(e) => setDraft({ ...draft, employee: e.target.value })}>{data.employees.map((e) => <option key={e.id}>{e.name}</option>)}</select></Field>
+        <Field label="社員"><select disabled={!canManage} value={draft.employeeId} onChange={(e) => { const selected = data.employees.find((employee) => employee.id === e.target.value); setDraft({ ...draft, employeeId: e.target.value, employee: selected?.name || "" }); }}>{(canManage ? data.employees : currentEmployee ? [currentEmployee] : []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></Field>
         <Field label="日付"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></Field>
         <Field label="開始"><input type="time" value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} /></Field>
         <Field label="終了"><input type="time" value={draft.end} onChange={(e) => setDraft({ ...draft, end: e.target.value })} /></Field>
         <Field label="メモ"><input value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></Field>
       </>}
-      table={<DataTable headers={["社員", "日付", "開始", "終了", "メモ"]} rows={data.attendance.map((r) => [r.employee, r.date, r.start, r.end, r.note])} />}
+      table={<DataTable headers={["社員", "日付", "開始", "終了", "メモ"]} rows={visibleRows.map((r) => [r.employee, r.date, r.start, r.end, r.note])} />}
     />
   );
 }
 
-function RequestsView({ title, rows, onApprove, onAdd, expense = false }: { title: string; rows: RequestItem[]; onApprove: (id: string, status: RequestItem["status"]) => void; onAdd: (item: RequestItem) => void; expense?: boolean }) {
-  const [draft, setDraft] = useState({ type: expense ? "交通費" : "有給", title: "", requester: "", amount: 0, date: today });
+function RequestsView({ title, rows, onApprove, onAdd, currentEmployee, canApprove, expense = false }: { title: string; rows: RequestItem[]; onApprove: (id: string, status: RequestItem["status"]) => void; onAdd: (item: RequestItem) => void; currentEmployee?: Employee; canApprove: boolean; expense?: boolean }) {
+  const [draft, setDraft] = useState({ type: expense ? "交通費" : "有給", title: "", amount: 0, date: today });
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!draft.title || !draft.requester) return;
-    onAdd({ id: uid(expense ? "exp" : "leave"), ...draft, status: "申請中" });
-    setDraft({ ...draft, title: "", requester: "", amount: 0 });
+    if (!draft.title || !currentEmployee) return;
+    onAdd({ id: uid(expense ? "exp" : "leave"), ...draft, requesterId: currentEmployee.id, requester: currentEmployee.name, status: "申請中" });
+    setDraft({ ...draft, title: "", amount: 0 });
   };
   return (
     <div className="pageStack">
@@ -672,7 +731,7 @@ function RequestsView({ title, rows, onApprove, onAdd, expense = false }: { titl
         <form className="formGrid" onSubmit={submit}>
           <Field label="種別"><input value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })} /></Field>
           <Field label="内容"><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field>
-          <Field label="申請者"><input value={draft.requester} onChange={(e) => setDraft({ ...draft, requester: e.target.value })} /></Field>
+          <Field label="申請者"><input value={currentEmployee?.name || ""} disabled /></Field>
           {expense && <Field label="金額"><input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></Field>}
           <Field label="日付"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></Field>
           <button className="primary"><Plus size={17} />申請</button>
@@ -684,15 +743,16 @@ function RequestsView({ title, rows, onApprove, onAdd, expense = false }: { titl
         row.requester,
         expense ? yen(row.amount || 0) : row.date,
         <Status value={row.status} />,
-        <div className="actions"><button onClick={() => onApprove(row.id, "承認")}>承認</button><button onClick={() => onApprove(row.id, "差戻し")}>差戻し</button></div>,
+        canApprove ? <div className="actions"><button onClick={() => onApprove(row.id, "承認")}>承認</button><button onClick={() => onApprove(row.id, "差戻し")}>差戻し</button></div> : "不可",
       ])} />
     </div>
   );
 }
 
-function Shifts({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ employee: "", date: today, time: "09:00-18:00", location: "本社" });
-  return <SimpleModule title="シフト登録" icon={<CalendarDays size={19} />} onSubmit={() => update("shifts", [{ id: uid("shift"), ...draft }, ...data.shifts])} form={<><Field label="社員"><input value={draft.employee} onChange={(e) => setDraft({ ...draft, employee: e.target.value })} /></Field><Field label="日付"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></Field><Field label="時間"><input value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></Field><Field label="場所"><input value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} /></Field></>} table={<DataTable headers={["社員", "日付", "時間", "場所"]} rows={data.shifts.map((r) => [r.employee, r.date, r.time, r.location])} />} />;
+function Shifts({ data, visibleRows, update, currentEmployee, canManage }: { data: DataStore; visibleRows: Shift[]; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; currentEmployee?: Employee; canManage: boolean }) {
+  const defaultEmployee = currentEmployee || data.employees[0];
+  const [draft, setDraft] = useState({ employeeId: defaultEmployee?.id || "", employee: defaultEmployee?.name || "", date: today, time: "09:00-18:00", location: "本社" });
+  return <SimpleModule title="シフト登録" icon={<CalendarDays size={19} />} onSubmit={() => { const selected = data.employees.find((employee) => employee.id === draft.employeeId) || currentEmployee; if (!selected) return; update("shifts", [{ id: uid("shift"), ...draft, employeeId: selected.id, employee: selected.name }, ...data.shifts]); }} form={<><Field label="社員"><select disabled={!canManage} value={draft.employeeId} onChange={(e) => { const selected = data.employees.find((employee) => employee.id === e.target.value); setDraft({ ...draft, employeeId: e.target.value, employee: selected?.name || "" }); }}>{(canManage ? data.employees : currentEmployee ? [currentEmployee] : []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></Field><Field label="日付"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></Field><Field label="時間"><input value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></Field><Field label="場所"><input value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} /></Field></>} table={<DataTable headers={["社員", "日付", "時間", "場所"]} rows={visibleRows.map((r) => [r.employee, r.date, r.time, r.location])} />} />;
 }
 
 function Announcements({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
@@ -705,9 +765,10 @@ function Documents({ data, update }: { data: DataStore; update: <K extends keyof
   return <SimpleModule title="Driveリンク登録" icon={<FolderOpen size={19} />} onSubmit={() => update("documents", [{ id: uid("doc"), ...draft }, ...data.documents])} form={<><Field label="タイトル"><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field><Field label="カテゴリ"><input value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} /></Field><Field label="管理部署"><input value={draft.owner} onChange={(e) => setDraft({ ...draft, owner: e.target.value })} /></Field><Field label="公開範囲"><input value={draft.visibility} onChange={(e) => setDraft({ ...draft, visibility: e.target.value })} /></Field><Field label="Driveリンク/パス"><input value={draft.driveUrl} onChange={(e) => setDraft({ ...draft, driveUrl: e.target.value })} /></Field></>} table={<DataTable headers={["タイトル", "カテゴリ", "管理", "範囲", "リンク"]} rows={data.documents.map((r) => [r.title, r.category, r.owner, r.visibility, <a href={r.driveUrl.startsWith("http") ? r.driveUrl : undefined} target="_blank"><ExternalLink size={15} />{r.driveUrl}</a>])} />} />;
 }
 
-function Tasks({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ title: "", assignee: "", due: today, status: "未着手" as Task["status"], priority: "中" as Task["priority"] });
-  return <SimpleModule title="タスク追加" icon={<CheckSquare size={19} />} onSubmit={() => update("tasks", [{ id: uid("task"), ...draft }, ...data.tasks])} form={<><Field label="タスク"><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field><Field label="担当"><input value={draft.assignee} onChange={(e) => setDraft({ ...draft, assignee: e.target.value })} /></Field><Field label="期限"><input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></Field><Field label="優先度"><select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as Task["priority"] })}><option>高</option><option>中</option><option>低</option></select></Field></>} table={<DataTable headers={["タスク", "担当", "期限", "状態", "優先度"]} rows={data.tasks.map((r) => [r.title, r.assignee, r.due, <button onClick={() => update("tasks", data.tasks.map((task) => task.id === r.id ? { ...task, status: task.status === "完了" ? "未着手" : "完了" } : task))}><Status value={r.status} /></button>, <Status value={r.priority} />])} />} />;
+function Tasks({ data, visibleRows, update, currentEmployee, canManage }: { data: DataStore; visibleRows: Task[]; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; currentEmployee?: Employee; canManage: boolean }) {
+  const defaultEmployee = currentEmployee || data.employees[0];
+  const [draft, setDraft] = useState({ title: "", assigneeId: defaultEmployee?.id || "", assignee: defaultEmployee?.name || "", due: today, status: "未着手" as Task["status"], priority: "中" as Task["priority"] });
+  return <SimpleModule title="タスク追加" icon={<CheckSquare size={19} />} onSubmit={() => { const selected = data.employees.find((employee) => employee.id === draft.assigneeId) || currentEmployee; if (!selected) return; update("tasks", [{ id: uid("task"), ...draft, assigneeId: selected.id, assignee: selected.name }, ...data.tasks]); }} form={<><Field label="タスク"><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field><Field label="担当"><select disabled={!canManage} value={draft.assigneeId} onChange={(e) => { const selected = data.employees.find((employee) => employee.id === e.target.value); setDraft({ ...draft, assigneeId: e.target.value, assignee: selected?.name || "" }); }}>{(canManage ? data.employees : currentEmployee ? [currentEmployee] : []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select></Field><Field label="期限"><input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></Field><Field label="優先度"><select value={draft.priority} onChange={(e) => setDraft({ ...draft, priority: e.target.value as Task["priority"] })}><option>高</option><option>中</option><option>低</option></select></Field></>} table={<DataTable headers={["タスク", "担当", "期限", "状態", "優先度"]} rows={visibleRows.map((r) => [r.title, r.assignee, r.due, <button onClick={() => update("tasks", data.tasks.map((task) => task.id === r.id ? { ...task, status: task.status === "完了" ? "未着手" : "完了" } : task))}><Status value={r.status} /></button>, <Status value={r.priority} />])} />} />;
 }
 
 function Customers({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
@@ -730,30 +791,24 @@ function Finance({ data, update }: { data: DataStore; update: <K extends keyof D
   return <SimpleModule title="請求登録" icon={<JapaneseYen size={19} />} onSubmit={() => update("invoices", [{ id: uid("inv"), ...draft }, ...data.invoices])} form={<><Field label="顧客"><input value={draft.customer} onChange={(e) => setDraft({ ...draft, customer: e.target.value })} /></Field><Field label="案件"><input value={draft.project} onChange={(e) => setDraft({ ...draft, project: e.target.value })} /></Field><Field label="金額"><input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></Field><Field label="支払期限"><input type="date" value={draft.due} onChange={(e) => setDraft({ ...draft, due: e.target.value })} /></Field><label className="check"><input type="checkbox" checked={draft.paid} onChange={(e) => setDraft({ ...draft, paid: e.target.checked })} />入金済み</label></>} table={<DataTable headers={["顧客", "案件", "金額", "期限", "入金"]} rows={data.invoices.map((r) => [r.customer, r.project, yen(r.amount), r.due, <button onClick={() => update("invoices", data.invoices.map((invoice) => invoice.id === r.id ? { ...invoice, paid: !invoice.paid } : invoice))}><Status value={r.paid ? "入金済" : "未入金"} /></button>])} />} />;
 }
 
-function Reports({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ employee: "", type: "日報" as Report["type"], date: today, summary: "" });
-  return <SimpleModule title="日報・週報作成" icon={<FileText size={19} />} onSubmit={() => update("reports", [{ id: uid("rep"), ...draft }, ...data.reports])} form={<><Field label="社員"><input value={draft.employee} onChange={(e) => setDraft({ ...draft, employee: e.target.value })} /></Field><Field label="種類"><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as Report["type"] })}><option>日報</option><option>週報</option></select></Field><Field label="日付"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></Field><Field label="内容"><textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} /></Field></>} table={<DataTable headers={["社員", "種類", "日付", "内容"]} rows={data.reports.map((r) => [r.employee, r.type, r.date, r.summary])} />} />;
+function Reports({ data, visibleRows, update, currentEmployee }: { data: DataStore; visibleRows: Report[]; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; currentEmployee?: Employee }) {
+  const [draft, setDraft] = useState({ type: "日報" as Report["type"], date: today, summary: "" });
+  return <SimpleModule title="日報・週報作成" icon={<FileText size={19} />} onSubmit={() => { if (!currentEmployee) return; update("reports", [{ id: uid("rep"), employeeId: currentEmployee.id, employee: currentEmployee.name, ...draft }, ...data.reports]); }} form={<><Field label="社員"><input value={currentEmployee?.name || ""} disabled /></Field><Field label="種類"><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as Report["type"] })}><option>日報</option><option>週報</option></select></Field><Field label="日付"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></Field><Field label="内容"><textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} /></Field></>} table={<DataTable headers={["社員", "種類", "日付", "内容"]} rows={visibleRows.map((r) => [r.employee, r.type, r.date, r.summary])} />} />;
 }
 
-function ChatView({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ author: "", channel: "全社", message: "", time: "10:00" });
-  return <SimpleModule title="コメント投稿" icon={<MessageSquare size={19} />} onSubmit={() => update("chats", [{ id: uid("chat"), ...draft }, ...data.chats])} form={<><Field label="投稿者"><input value={draft.author} onChange={(e) => setDraft({ ...draft, author: e.target.value })} /></Field><Field label="チャンネル"><input value={draft.channel} onChange={(e) => setDraft({ ...draft, channel: e.target.value })} /></Field><Field label="時刻"><input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></Field><Field label="内容"><input value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} /></Field></>} table={<DataTable headers={["時刻", "チャンネル", "投稿者", "内容"]} rows={data.chats.map((r) => [r.time, r.channel, r.author, r.message])} />} />;
+function ChatView({ data, update, currentEmployee }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void; currentEmployee?: Employee }) {
+  const [draft, setDraft] = useState({ channel: "全社", message: "", time: "10:00" });
+  return <SimpleModule title="コメント投稿" icon={<MessageSquare size={19} />} onSubmit={() => { if (!currentEmployee) return; update("chats", [{ id: uid("chat"), authorId: currentEmployee.id, author: currentEmployee.name, ...draft }, ...data.chats]); }} form={<><Field label="投稿者"><input value={currentEmployee?.name || ""} disabled /></Field><Field label="チャンネル"><input value={draft.channel} onChange={(e) => setDraft({ ...draft, channel: e.target.value })} /></Field><Field label="時刻"><input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></Field><Field label="内容"><input value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} /></Field></>} table={<DataTable headers={["時刻", "チャンネル", "投稿者", "内容"]} rows={data.chats.map((r) => [r.time, r.channel, r.author, r.message])} />} />;
 }
 
 function Admin({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ name: "", permissions: "", members: 0 });
   return (
     <div className="pageStack">
       <Card>
-        <SectionTitle icon={<Shield size={19} />} title="権限ロール" action={<button onClick={() => localStorage.setItem("company-hub-backup", JSON.stringify(data))}><Save size={16} />バックアップ</button>} />
-        <form className="formGrid" onSubmit={(e) => { e.preventDefault(); update("roles", [{ id: uid("role"), ...draft }, ...data.roles]); }}>
-          <Field label="ロール名"><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
-          <Field label="権限"><input value={draft.permissions} onChange={(e) => setDraft({ ...draft, permissions: e.target.value })} /></Field>
-          <Field label="人数"><input type="number" value={draft.members} onChange={(e) => setDraft({ ...draft, members: Number(e.target.value) })} /></Field>
-          <button className="primary"><Plus size={17} />追加</button>
-        </form>
+        <SectionTitle icon={<Shield size={19} />} title="権限管理" action={<button onClick={() => localStorage.setItem("company-hub-backup", JSON.stringify(data))}><Save size={16} />バックアップ</button>} />
+        <p className="muted">社員管理画面でアカウントメールと権限を設定します。メールがログインアカウントと一致すると、その社員に紐づきます。</p>
       </Card>
-      <DataTable headers={["ロール", "権限", "人数"]} rows={data.roles.map((r) => [r.name, r.permissions, `${r.members}名`])} />
+      <DataTable headers={["名前", "メール", "権限", "アカウントUID"]} rows={data.employees.map((employee) => [employee.name, employee.email, accessRoleLabels[employee.accessRole], employee.authUid || "メール紐づけ待ち"])} />
     </div>
   );
 }

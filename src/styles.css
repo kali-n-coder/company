@@ -203,6 +203,10 @@ h1 {
   font-size: 13px;
 }
 
+.muted {
+  color: #66727f;
+}
+
 .syncPill,
 .userButton,
 .secondaryButton,
