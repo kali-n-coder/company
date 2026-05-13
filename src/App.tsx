@@ -106,6 +106,7 @@ type Announcement = {
   title: string;
   body: string;
   department: string;
+  linkUrl?: string;
   pinned: boolean;
 };
 
@@ -306,7 +307,7 @@ function scopedDataFor(role: AccessRole, employee: Employee | undefined, data: D
     invoices: canSeeMoney ? data.invoices : [],
     financialAssets: canSeeMoney ? data.financialAssets : [],
     equipment: canSeeMoney ? data.equipment : [],
-    reports: data.reports.filter((row) => isPersonalRecord(row.employeeId, row.employee, employee)),
+    reports: data.reports,
   };
 }
 
@@ -617,7 +618,7 @@ function Dashboard({ data, companyData, stats }: { data: DataStore; companyData:
             {data.announcements.filter((item) => item.pinned).map((item) => (
               <div className="listRow" key={item.id}>
                 <div><strong>{item.title}</strong><span>{item.body}</span></div>
-                <Status value={item.department} />
+                {item.linkUrl ? <a href={item.linkUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} />開く</a> : <Status value={item.department} />}
               </div>
             ))}
           </div>
@@ -819,8 +820,8 @@ function Shifts({ data, visibleRows, update, currentEmployee, canManage }: { dat
 }
 
 function Announcements({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
-  const [draft, setDraft] = useState({ title: "", body: "", department: "全社", pinned: false });
-  return <SimpleModule title="お知らせ投稿" icon={<Megaphone size={19} />} onSubmit={() => update("announcements", [{ id: uid("ann"), ...draft }, ...data.announcements])} form={<><Field label="タイトル"><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field><Field label="本文"><input value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></Field><Field label="部署"><input value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })} /></Field><label className="check"><input type="checkbox" checked={draft.pinned} onChange={(e) => setDraft({ ...draft, pinned: e.target.checked })} />固定</label></>} table={<DataTable headers={["タイトル", "本文", "部署", "固定"]} rows={data.announcements.map((r) => [r.title, r.body, r.department, r.pinned ? "固定" : "通常"])} />} />;
+  const [draft, setDraft] = useState({ title: "", body: "", department: "全社", linkUrl: "", pinned: false });
+  return <SimpleModule title="お知らせ投稿" icon={<Megaphone size={19} />} onSubmit={() => update("announcements", [{ id: uid("ann"), ...draft }, ...data.announcements])} form={<><Field label="タイトル"><input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></Field><Field label="本文"><input value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></Field><Field label="部署"><input value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })} /></Field><Field label="リンク"><input type="url" placeholder="https://..." value={draft.linkUrl} onChange={(e) => setDraft({ ...draft, linkUrl: e.target.value })} /></Field><label className="check"><input type="checkbox" checked={draft.pinned} onChange={(e) => setDraft({ ...draft, pinned: e.target.checked })} />固定</label></>} table={<DataTable headers={["タイトル", "本文", "部署", "リンク", "固定", ""]} rows={data.announcements.map((r) => [r.title, r.body, r.department, r.linkUrl ? <a href={r.linkUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} />開く</a> : "", r.pinned ? "固定" : "通常", <button className="iconBtn" onClick={() => update("announcements", data.announcements.filter((item) => item.id !== r.id))}><Trash2 size={16} /></button>])} />} />;
 }
 
 function Documents({ data, update }: { data: DataStore; update: <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void }) {
