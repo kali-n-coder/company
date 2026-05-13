@@ -29,7 +29,7 @@ import {
   Users,
   WalletCards,
 } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -307,25 +307,29 @@ function useCompanyData(user: User | null) {
   const [data, setData] = useState<DataStore>(seedData);
   const [syncState, setSyncState] = useState("ログイン待ち");
   const [isCloudReady, setIsCloudReady] = useState(false);
+  const [hasLoadedCloud, setHasLoadedCloud] = useState(false);
 
   useEffect(() => {
     if (!db || !user) {
       setSyncState(user ? "Firestore未設定" : "ログイン待ち");
       setIsCloudReady(false);
+      setHasLoadedCloud(false);
       return undefined;
     }
 
     const ref = doc(db, "companyData", "main");
     setSyncState("クラウド接続中");
+    setHasLoadedCloud(false);
 
     return onSnapshot(
       ref,
       async (snapshot) => {
         if (snapshot.exists()) {
-          const cloudData = snapshot.data().data as DataStore;
+          const cloudData = (snapshot.data().data || seedData) as DataStore;
           setData(cloudData);
           localStorage.setItem("company-hub-data", JSON.stringify(cloudData));
           setIsCloudReady(true);
+          setHasLoadedCloud(true);
           setSyncState("Firestore同期中");
           return;
         }
@@ -336,15 +340,25 @@ function useCompanyData(user: User | null) {
           updatedAt: serverTimestamp(),
           updatedBy: user.email,
         });
+        setData(seedData);
+        setIsCloudReady(true);
+        setHasLoadedCloud(true);
+        setSyncState("Firestore同期中");
       },
       (error) => {
         setIsCloudReady(false);
+        setHasLoadedCloud(false);
         setSyncState(error.message.includes("permission") ? "Firestore権限エラー" : "Firestore接続エラー");
       },
     );
   }, [user]);
 
-  const save = async (next: DataStore) => {
+  const save = useCallback(async (next: DataStore) => {
+    if (db && user && !hasLoadedCloud) {
+      setSyncState("Firestore読み込み中");
+      return;
+    }
+
     setData(next);
     localStorage.setItem("company-hub-data", JSON.stringify(next));
 
@@ -369,16 +383,16 @@ function useCompanyData(user: User | null) {
       setIsCloudReady(false);
       setSyncState(error instanceof Error ? error.message : "Firestore保存エラー");
     }
-  };
+  }, [hasLoadedCloud, user]);
 
-  return [data, save, syncState, isCloudReady] as const;
+  return [data, save, syncState, isCloudReady, hasLoadedCloud] as const;
 }
 
 export function App() {
   const [active, setActive] = useState<ModuleId>("dashboard");
   const [query, setQuery] = useState("");
   const { user, authReady } = useAuthUser();
-  const [data, saveData, syncState, isCloudReady] = useCompanyData(user);
+  const [data, saveData, syncState, isCloudReady, hasLoadedCloud] = useCompanyData(user);
   const currentEmployee = useMemo(
     () => data.employees.find((employee) => employee.authUid === user?.uid || employee.accountEmail === user?.email),
     [data.employees, user],
@@ -395,7 +409,10 @@ export function App() {
     return { openApprovals, unpaid, pipeline, openTasks };
   }, [scopedData]);
 
-  const update = <K extends keyof DataStore>(key: K, rows: DataStore[K]) => void saveData({ ...data, [key]: rows });
+  const update = <K extends keyof DataStore>(key: K, rows: DataStore[K]) => {
+    if (!hasLoadedCloud) return;
+    void saveData({ ...data, [key]: rows });
+  };
 
   const approve = (key: "leaveRequests" | "expenses", id: string, status: RequestItem["status"]) => {
     if (!canApprove(currentRole)) return;
@@ -406,7 +423,7 @@ export function App() {
   };
 
   useEffect(() => {
-    if (!user || currentEmployee) return;
+    if (!hasLoadedCloud || !user || currentEmployee) return;
     const firstEmployee = data.employees.length === 0;
     const selfEmployee: Employee = {
       id: uid("emp"),
@@ -421,17 +438,17 @@ export function App() {
       status: "在籍",
     };
     void saveData({ ...data, employees: [selfEmployee, ...data.employees] });
-  }, [currentEmployee, data, saveData, user]);
+  }, [currentEmployee, data, hasLoadedCloud, saveData, user]);
 
   useEffect(() => {
-    if (!user || !currentEmployee || currentEmployee.authUid === user.uid) return;
+    if (!hasLoadedCloud || !user || !currentEmployee || currentEmployee.authUid === user.uid) return;
     void saveData({
       ...data,
       employees: data.employees.map((employee) =>
         employee.id === currentEmployee.id ? { ...employee, authUid: user.uid, accountEmail: user.email || employee.accountEmail } : employee,
       ),
     });
-  }, [currentEmployee, data, saveData, user]);
+  }, [currentEmployee, data, hasLoadedCloud, saveData, user]);
 
   useEffect(() => {
     if (!canAccessModule(currentRole, active)) {
@@ -445,6 +462,14 @@ export function App() {
 
   if (!user) {
     return <AuthScreen />;
+  }
+
+  if (!hasLoadedCloud) {
+    return <div className="centerScreen">クラウドデータを読み込み中...</div>;
+  }
+
+  if (!currentEmployee) {
+    return <div className="centerScreen">社員情報を準備しています...</div>;
   }
 
   return (
